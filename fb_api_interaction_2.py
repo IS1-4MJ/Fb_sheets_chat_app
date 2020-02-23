@@ -4,23 +4,28 @@ Created on Sat Feb 22 17:29:09 2020
 
 @author: josep
 """
-
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 from pandas import DataFrame, Series
+from df2gspread import df2gspread as d2g
+from google.oauth2 import service_account
 import fbchat
 import fbchat.models as models
 from time import sleep
-
 from gspread_formatting import cellFormat, textFormat, format_cell_range, color
 credentials = ('ejnislam18@gmail.com','Jello123!')
 
 class Sheets_api_simplified:
     def __init__(self, credentials):
         
+        scope = ['https://spreadsheets.google.com/feeds',
+         'https://www.googleapis.com/auth/drive']
         gc = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_name(credentials, scope))
         self._sheet = gc.open("outreach_app").sheet1
         
         
     def set_cell_background_color(self, cell_id, color_):
+        
         fmt = cellFormat(
             backgroundColor=color(*color_),
         textFormat=textFormat(bold=False, foregroundColor=color(0,0,0)),
@@ -31,7 +36,11 @@ class Sheets_api_simplified:
         pass
     def align_cell(self, cell_id, alignment='CENTER'):
         pass
+    
     def get_cell_color(self, cell_id):
+        # Returns cell color
+        cell_color_format = get_effective_format(self._sheet, cell_id)
+        return cell_color_format.backgroundColor()
         # Returns cell color
         pass
     def get_cell_text(self, cell_id):
@@ -60,7 +69,7 @@ class Sheets_api_augmented:
         row = int(pos[1])
         for ind, line in enumerate(conversation):
             new_pos = col + str(row + ind)
-            self._client.set_cell_text(new_pos) = line
+            self._client.set_cell_text(new_pos, line)
             if not ind % 4:
                 self._client.set_cell_text_color(new_pos, (0,0,0))
             else:
@@ -351,7 +360,7 @@ def send_messages_to_facebook(pandas_to_facebook,
 Processes message data from google sheet format to facebook message format
 and sends message data out to facebook
 '''
-def get_messages_from_google_sheet_and_send_to_facebook(pandas_to_facebook, original_sheet):
+def get_messages_from_google_sheet_and_send_to_facebook(pandas_to_facebook, Google_sheet_to_Pandas, original_sheet):
     '''get_messages_from_google_sheet_and_send_to_facebook
     google_sheets_data = {userName: [CLIENTMSG, "", OTHERMSG, "", CLIENTMSG, ...,
                                 "", CLIENTMSG/OTHERMSG]} format'''
@@ -497,7 +506,6 @@ def testing_biggest_functions():
     facebook_to_pandas_and_back = Facebook_to_Pandas_and_Back(credentials)
     facebook_to_pandas_and_back.load_names(names)
     
-    get_messages_from_google_sheet_and_send_to_facebook(facebook_to_pandas_and_back, dummy_original_sheet)
-last_messages = testing_biggest_functions()
-
-
+    get_messages_from_google_sheet_and_send_to_facebook(facebook_to_pandas_and_back, dummy_original_sheet, )
+#last_messages = testing_biggest_functions()
+    
