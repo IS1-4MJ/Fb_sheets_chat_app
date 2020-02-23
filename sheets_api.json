@@ -1,0 +1,12 @@
+{
+  "type": "service_account",
+  "project_id": "fb-app-sheets-tool",
+  "private_key_id": "43d89da557501cb668efb8356a63b4742b4f3912",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDAJ5Oa2NPVmdEg\n/0lH76ZRENUklt8czKActOnRg6vIp+dXzA+NRhubIQCJUYneJ8T1RL0DYcKVrtla\n/qL/x/NHSj3Z4X1D19VBqqZcowkg3IQ8cmVu+l1XvkO3UUdO8k/xbS/WrNOZcUMl\n9bVwwQipzaJT3Ev7B4QsOislIA1qQl4qpsE6moGZg2UiUUgwztnePpplyF8fZqaM\nJI/NJzn6dqbpiJLT3cwluBtxga3vqQF9WSfI4nSVmSQC0K++ITd3oH3MkW8v5blY\nxAGSBOIWFDrajcRAVMBGDTPcA/kbtfDPyKEiw8oaz2Xv+4P2ShSmt5vvl+qxjcMH\nvmFyEZY7AgMBAAECggEADyiwINWn3zXWGo55MgHKcvfAe4qkHv9XnEbQxrS8BHBB\nNHBxQ6RlwMxkNfERpCMqtcIOpT8nnNZhPaf7+kYZv6SFkkmTL8XNrvNZp3znLJ6o\n7KSGXbBw/7SPXrK8ojzvKJfZX8wHmhcmLyRIrun+Qc3AAhyi091zxGdxsuk/QFl0\nBLaiEVt3Ts0GhVAOWISQmG0LBczD7nGWbP5kzjEjeOwtlGMtQa1jngglx6JaAgkp\niME3DfpogieZnKGC99Eyqayvudxdw2lnriSu3ENUMvQBdQjGgw/RVIaIpjWpeFnC\nzbYxOsi/QnhOOVmW5QMMIIY8Z/Fs8i6Ca4NUYj39nQKBgQDeSzm5ddvYu28NglXy\n5CPxuWVcZ3xP1wF4anV3Hs3CJT+FW6yJxq3Y/7MOXrxyRRYd44ijTdJ+48tvP9c4\nviPLn58e0KaEX8fWsRNxVGbACR6htksNlOOCv+aFmUgc6MeBmCqdJbo0Ksa/5QJM\nN/5IfE594c0G2PNZUKgMZ3RoTQKBgQDdSm+9X3obPeg93EdfNQEB7NULUH52bamX\nZ4RgAt2oBjgnfiA36pG4Acc7nJBRxaIrT4nFLcWBr7fymB8blEuQn4QxtWmFQsB0\nXdhXFjPotwhghPnw4eiqz6EuFnO/18Nbbd6FEyWgHEWmSGGTHjNyIsirAWn2QqQ0\nH1yELy28pwKBgQDGKD7T4YlSAXu0iiv98ntMPt1pauK49UvdQOFnh7EZ0UR3p8n9\no3tTxlSiibbpEkbt6+fg0z3CWWP+zuUXMwALw0YAHTVjKVKmQoG3c+qIY1jIBQ2Q\nlNnesxxWmdZb1vIJx1Ctd3UujbdQVmAe+4cUrKL3ujKfWQRM6QZ00EBHvQKBgQDY\nqjQDn8Lnf1KvlsjOwA/PeboSTOq1O6Pr2O/0LXonNIewqz4SYXnxRtRyWlW3qqCg\ndUz4IVubIZgiT61NjIH8BSMipHO/hV730JasldGXTfZGwowRvK7Y51fxzwvfzvq4\nvzc65kdVn7jWGVJoAA7w9nuxaz37Xr51RiuIRMUsSwKBgFPPrLPv9OpVKspMP+Wv\nOdeTyr+2utm65NxxC3CbfH9MuJo/bJh/kp32/x39axMdnFMtogPNJLWx7UZFwl+v\nxFm2BBpKUepoZY2NXrvgU0Zgxx+21WFTHDRVrCwJObHUCcfmbdmFjs9cLVQeA6oq\nnjc6+685QmlKC2vmjnH8YINE\n-----END PRIVATE KEY-----\n",
+  "client_email": "fb-app-sheets-tool@fb-app-sheets-tool.iam.gserviceaccount.com",
+  "client_id": "114189341445804207639",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/fb-app-sheets-tool%40fb-app-sheets-tool.iam.gserviceaccount.com"
+}

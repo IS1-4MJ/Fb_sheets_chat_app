@@ -10,7 +10,100 @@ import fbchat
 import fbchat.models as models
 from time import sleep
 
+from gspread_formatting import cellFormat, textFormat, format_cell_range, color
 credentials = ('ejnislam18@gmail.com','Jello123!')
+
+class Sheets_api_simplified:
+    def __init__(self, credentials):
+        
+        gc = gspread.authorize(ServiceAccountCredentials.from_json_keyfile_name(credentials, scope))
+        self._sheet = gc.open("outreach_app").sheet1
+        
+        
+    def set_cell_background_color(self, cell_id, color_):
+        fmt = cellFormat(
+            backgroundColor=color(*color_),
+        textFormat=textFormat(bold=False, foregroundColor=color(0,0,0)),
+        horizontalAlignment='CENTER')
+        format_cell_range(self._wks, cell_id + ':' + cell_id, fmt)
+
+    def set_cell_text_color(self, cell_id, color_):
+        pass
+    def align_cell(self, cell_id, alignment='CENTER'):
+        pass
+    def get_cell_color(self, cell_id):
+        # Returns cell color
+        pass
+    def get_cell_text(self, cell_id):
+        pass 
+    def toggle_borders(self, cell_id):
+        pass
+    def set_cell_text(self, cell_id, text):
+        pass
+    def get_all_records(self):
+        return self._wks.get_all_records()
+    def remove_column(self):
+        pass
+    
+class Sheets_api_augmented:
+    ALPHA = 'ABCDEFGHIJLMNOPQRSTUVWXYZ'
+    MAX_CONVO_DISPLAY_LENGTH = 40
+    def __init__(self, credentials):
+        self._client = Sheets_api_simplified()
+        
+    '''
+    Creates new thread for name on Google Sheet with texts conversation
+    with name in cell pos ([Letter][Number] format) and texts below.
+    '''
+    def place_new_thread(self, name, conversation, pos): 
+        col = Sheets_api_augmented.ALPHA.index(pos[0])
+        row = int(pos[1])
+        for ind, line in enumerate(conversation):
+            new_pos = col + str(row + ind)
+            self._client.set_cell_text(new_pos) = line
+            if not ind % 4:
+                self._client.set_cell_text_color(new_pos, (0,0,0))
+            else:
+                self._client.set_cell_text_color(new_pos, (0,0,1))    
+        
+    def remove_thread(self, pos):
+        col = Sheets_api_augmented.ALPHA.index(pos[0])
+        self._client.remove_column(col)
+        '''row = int(pos[1])
+        for ind in range(1, 50):
+            new_pos = col + str(row + ind)
+            self._client.set_cell_background_color(new_pos, (1,1,1))
+            self._client.set_cell_text(new_pos) = ''
+            self.'''
+            
+    '''
+    Gets thread with name at pos
+    Takes:
+        Google sheets pos in [ColumnLetter][RowNumber] format
+    Returns:
+        (CTRL NUM, conversation body)
+        CTRL = 1 if this is a new member
+        CTRL = -1 if this is a delete-me member
+        CTRL = 0 if this is just an ordinary exchange.
+    '''
+    def get_thread(self, pos):
+        col = pos[0]
+        row = int(pos[1])
+        name = self._client.get_cell_text(pos)
+        color = self._client.get_cell_color(pos)
+        messages = []
+        for num in range(Sheets_api_augmented.MAX_CONVO_DISPLAY_LENGTH):
+            new_pos = col + str(ind + (num + 1))
+            messages.append(self._client.get_cell_text(new_pos))
+        
+        CTRL = 0 # if defaukt
+        if color == 'green': # pick your green
+            CTRL = 1
+        elif color == 'RED':
+            CTRL = -1
+        return (CTRL, messages)
+    def get_name(self, pos):
+        return self._client.get_cell_text(pos)
 
 class Chat_api_augmented:
     def __init__(self, credentials):
@@ -45,11 +138,53 @@ class Chat_api_augmented:
             raise AssertionError('Too many friends with name:', thing_name)
             return (thing_name, ['NO.','BAD.', 'U have',' 2+ things',' with that',' name'])
         friend = thing_with_names[0]
-        return (friend.first_name + ' ' + friend.last_name,self.__client.fetchThreadMessages(friend.uid, limit=n))
+        return (friend.first_name + ' ' + friend.last_name,self.__client.fetchThreadMessages(friend.uid, limit=n)[::-1]) # RECENT CHANGE COME BACK TO ME IF SOEMTING BREAKS
         
     def logout(self):
         self.__client.logout()
         
+class Sheets_to_Pandas_and_Back:
+    ALPHA = 'ABCDEFGHIJLMNOPQRSTUVWXYZ'
+    def __init__(self, credentials, names=[], starting_row = 1):
+        
+        self._starting_row = starting_row
+        self._client = Sheets_api_augmented(credentials)
+        self.load_names(names)
+        
+    # Gives each user a new spot and binds their name accordingly.
+    def load_names(self, names):
+        names += ['new']
+        row = self._starting_row
+        self._users = dict()
+        for ind, name in enumerate(names):
+            self._users[name] = Sheets_to_Pandas_and_Back.ALPHA[ind+1] + str(row) 
+        return load_names
+        
+    def send_data_to_sheets(self, messages): # This is where new users are added and old users are removed. 
+        old_names = [user[0] for user in self._users]
+        for name in messages.columns:
+            if name in old_names:
+                self._client.place_new_thread(name, messages[name], self._users[name])
+            else:
+                self._client.remove_thread(self._users[name]) # There's some excess functionality here... THat's okay...
+    
+    # Get all the messages currently registered 
+    def retrieve_data_from_sheets(self):
+        messages = {}
+        for user in self._users:
+            thread = self._client.get_thread(user[1])
+            if thread[0] == 0:
+                messages[thread[0]] = thread[1]
+            elif thread[0] == 1:# If there's a new user, reflect that there is a new user! 
+                messages[thread[0]] = thread[1]
+                name = self._client.get_name(user.pos) # Make the new user occupy the old new user spot.
+                self._users[name] = self._users['new'] # Make the new user placeholder occupy a now shifted over by one spot.
+                self._users['new'] = Sheets_to_Pandas_and_Back.ALPHA[len(self._users)+1] + str(self._starting_row)
+            else:
+                self._client.remove_thread(self._users[name]) # just remove the thread from the sheet and keep going.
+                pass # Don't store data for people we're not going to be keeping around. Delete them from the excel sheet after this tick.                
+        return messages
+    
 # The purpose of this class is to keep users active so we don't have to constantly
 # Search for them, and push differences associated with users out to facebook.
 class Facebook_to_Pandas_and_Back:
@@ -95,7 +230,7 @@ class Facebook_to_Pandas_and_Back:
                     content_author_pairs[index] = ['CLIENT'] + [pair[1]]
                 else:
                     content_author_pairs[index] = ['OTHER'] + [pair[1]]
-
+            
             last_messages[name] = content_author_pairs
         return last_messages
             
@@ -172,17 +307,20 @@ Gets message data from the google sheet we're working on in
     dataFrame = {userName: [CLIENTMSG, "", OTHERMSG, "", CLIENTMSG, ...,
                                 "", CLIENTMSG/OTHERMSG]} format
 '''
-def get_data_from_google_sheet():
-    return DataFrame()
+def get_data_from_google_sheet(Google_sheet_to_Pandas):
+    return Google_sheet_to_Pandas.retrieve_data_from_Sheets()
 
 '''
 Sends message data to the google sheet we're working on in 
     dataFrame = {userName: [CLIENTMSG, "", OTHERMSG, "", CLIENTMSG, ...,
                                 "", CLIENTMSG/OTHERMSG]} format
 '''
-def send_data_to_google_sheet(message_data):
-    succeeded = True
-    return succeeded
+def send_data_to_google_sheet(Pandas_to_Google_Sheet, messages_DF):
+    try:
+        Pandas_to_Google_Sheet.send_data_to_sheets(messages_DF)
+    except AssertionError:
+        pass
+    return True
 
 '''
 Gets message data from facebook in
@@ -255,8 +393,45 @@ def get_messages_from_google_sheet_and_send_to_facebook(pandas_to_facebook, orig
 Processes message data from facebook message format to google sheets format
 and sends message data out to google sheets
 '''
-def get_messages_from_facebook_and_send_to_google_sheet():
-    pass
+def get_messages_from_facebook_and_send_to_google_sheet(facebook_to_pandas, pandas_to_Google_Sheets, max_messages_to_display = 10):
+    # There will no active chat changes between facebook and google sheets.
+    # Thus, we only have to change the format between the facebook format
+    # and the google sheets format.
+    # Get the facebook conversations in a rectangular pandas dataframe format
+    facebook_conversations = facebook_to_pandas.read_last_messages(max_messages_to_display)
+    
+    send_to_google_sheets = {}
+    for name in facebook_conversations.columns:
+        # Second Pass: Make sure the messages alternate in CLIENT, OTHER, ... CLIENT form.
+        for index in range(len(facebook_conversations[name]) - 1):
+            if facebook_conversations[name][index][0]==facebook_conversations[name][index+1][1]:
+                if facebook_conversations[name][index][0] == 'CLIENT':
+                    facebook_conversations[name].insert(index, ('OTHER', ""))
+                else:
+                    facebook_conversations[name].insert(index, ('CLIENT', ""))
+        # Third pass: Make sure the number of messages is still <= the max
+        if len(facebook_conversations[name]) > 10:
+            extra_length = len(facebook_conversations[name]) - 10
+            facebook_conversations[name] = facebook_conversations[name][extra_length:]
+        # Fourth pass: Make sure the client is leading the messages.
+        if facebook_conversations[name][0] == 'OTHER':
+            facebook_conversations[name] = facebook_conversations[name][1:]
+        
+        # Fifth pass Remove labels
+        for indx, message in enumerate(facebook_conversations[name]):
+            facebook_conversations[indx] = facebook_conversations[indx][1]
+        
+        # Sixth pass: Add the proper spacing between each message
+        i = len(facebook_conversations[name]) # Go from the back to the front and insert in between each entity.
+        while i > 0:
+            facebook_conversations[name].insert(i, '')
+            i -= 1
+        # Chill. Now our data is formatted correctly.
+    # now, we can frameify it and send it off to the google sheet.
+    formatted_conversation = make_dictionary_into_rectangle_array(facebook_conversations)
+    # Send these facebook conversations to the google sheet. There won't be any friend conflicts at this time.
+    send_data_to_google_sheet(pandas_to_Google_Sheets, formatted_conversation)
+    # And this should make the end of this function!
 
 '''
 Cycles information between facebook and google sheets
@@ -326,92 +501,3 @@ def testing_biggest_functions():
 last_messages = testing_biggest_functions()
 
 
-'''
-class Facebook_AND_Pandas_MSG_HANDLER:
-    def __init__(self, dataFrame, credentials):
-        self._dataFrame = dataFrame
-        self._previous_DataFrame_Instance = self._dataFrame.copy(deep = True)
-        
-        self._chat_augmented_api = Chat_api_augmented(credentials)
-        self._active_friend_conversations = {} # A dict of {name: user-Thread objects} from facebook api. Comes from dataframe when initialized.
-        
-    # Detect differences between the current dataframe and the new dataframe instance
-    # Store differences in a new update instance
-    # Update old dataframe object to new dataframe instance
-    # 
-    def __update_internal_reps(self, new_dataFrame_instance):
-        # Declare differences dataframe
-        # make
-        # 
-        #differences = dict(zip(TO_DELETE_NAMES, 
-        #                       [[''] for dummy in range(len(TO_DELETE_NAMES))]))
-        # Detect Major differences
-            # Users have been added or removed
-            #If we added a new user to the dataframe, note that difference.
-            
-            
-            difference_in_num_users = (len(new_dataFrame_instance.loc[0]) - 
-                                       len(self._dataFrame.loc[0]))
-            if difference_in_num_users > 0: # user has been added. 
-                pass
-            elif difference_in_num_users < 0: # user has been deleted 
-                pass
-        # Detect minor differences:
-            # Message differences
-    def push_data_to_facebook(self):
-        pass
-    def pull_data_from_facebook(self):
-        pass
-'''
-
-# b=0 case
-'''
-dataframe_placeholder = {'':[],
-                         '':[],
-                         ...
-                         '':[],
-                         'Name1':['S1','','R1','','S2','','R2',...]
-                         'Name2':['S1','','R1','','S2','','R2',...]
-                         ...
-                         'NameN':['S1','','R1','','S2','','R2',...]}
-
-dataframe_placeholder = {'':[],
-                         '':[],
-                         ...
-                         '':[],
-                         '':['','',...,'Name1', 'S1','','R1','','S2','','R2',...]
-                         '':['','',...,'Name2','S1','','R1','','S2','','R2',...]
-                         ...
-                         '':['','',...,'NameN','S1','','R1','','S2','','R2',...]}
-'''
-
-TO_DELETE_NAMES = ['Dipesh Poudel','Joseph Islam','Ali', 'Ana Verulidze']
-'''
-longest_message = 0
-vertical_offset = 0
-horizontal_offset = 0
-max_len = vertical_offset + longest_message
-
-
-dataframe_placeholder = {}
-for column in range(horizontal_offset):
-    dataframe_placeholder[' ' * column] = [] + ['']*max_len
-    
-for index, name in enumerate(names):
-    if vertical_offset == 0:
-        dataframe_placeholder[name] = ['']*max_len
-    else:
-        dataframe_placeholder[' ' * (column + index + 1)] = ['']
-'''
-
-dataframe_placeholder = dict(zip(TO_DELETE_NAMES, [[''] for dummy in range(len(TO_DELETE_NAMES))]))
-dataFrame = DataFrame(dataframe_placeholder)
-
-# Second pass: Put empty response between client-client responses
-# or other-other responses
-
-# Third pass
-
-#augmented = Chat_api_augmented(credentials)
-#print(augmented.read_last_n_messages('Dipesh', 10))
-#augmented.logout()
