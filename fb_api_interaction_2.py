@@ -5,7 +5,7 @@ Created on Sat Feb 22 17:29:09 2020
 @author: josep
 """
 
-from pandas import DataFrame
+from pandas import DataFrame, Series
 import fbchat
 import fbchat.models as models
 from time import sleep
@@ -68,7 +68,10 @@ class Facebook_to_Pandas_and_Back:
                 if len(friends) > 1:
                     print('too many friends with name: ' + name)
                     raise AssertionError('too many friend with name: ' + name)
-                self._users[name] = friends[0]
+                elif len(friends) == 1:
+                    self._users[name] = friends[0]
+                else:
+                    print('No friends found with name: ' + name)
             except AssertionError:
                 pass
     
@@ -89,15 +92,16 @@ class Facebook_to_Pandas_and_Back:
             # First pass: Label who sent each message
             for index, pair in enumerate(content_author_pairs):
                 if pair[0] == self._client.client_id():
-                    content_author_pairs[index] = ['CLIENT'] + pair[1]
+                    content_author_pairs[index] = ['CLIENT'] + [pair[1]]
                 else:
-                    content_author_pairs[index] = ['OTHER'] + pair[1]
+                    content_author_pairs[index] = ['OTHER'] + [pair[1]]
 
             last_messages[name] = content_author_pairs
         return last_messages
             
     '''
     posts given new messages to facebook.
+    Will not post Null messages to facebook. Null messages are those that are ''
     Takes: 
         new_msg_dataframe: Pandas dataframe in {userName: [msg1out, msg2out, ..., msgNout]}
                             format. 
@@ -105,21 +109,24 @@ class Facebook_to_Pandas_and_Back:
         boolean success of the message posting.
     '''
     def post_given_messages(self, new_msg_dataframe):        
-        active_user_threads = self._users.keys()
-        assert len(active_user_threads) == len(new_msg_dataframe.loc[0]), \
-        "Cannot post " + str(len(new_msg_dataframe.loc[0])) + \
+        active_user_threads = list(self._users.keys())
+        assert len(active_user_threads) == len(new_msg_dataframe.columns), \
+        "Cannot post " + str(len(new_msg_dataframe.columns)) + \
         " convo threads to " + str(len(active_user_threads)) + ". Load names again?"
         
-        for name in new_msg_dataframe.loc[0]:
+        for name in new_msg_dataframe.columns:
             if name in active_user_threads:
                 thread = self._users[name]
                 for new_msg_out in new_msg_dataframe[name]:
                     try:
+                        if new_msg_out == '':
+                            continue
                         self._client.send_message_to_person_uid(thread.uid, new_msg_out)
                     except:
                         return False
         return True # We at least attempted to send all the messages. 
-
+    def logout(self):
+        self._client.logout()
 '''
 HELPER FUNCTIONS
 '''
@@ -146,10 +153,19 @@ def get_new_client_messages_out(past_client_msgs, current_client_msgs):
     while last_current_client_msg != last_past_client_msg:
         new_but_backwards.append(last_current_client_msg)
         backtrack_index -= 1
+        last_current_client_msg = current_client_msgs[backtrack_index]
     return new_but_backwards[::-1]
+
+def make_dictionary_into_rectangle_array(dictionary, filler=''):
+    return DataFrame(dict([ (name,Series(messages)) for name,messages in dictionary.items() ])).fillna(filler)
 
 def get_client_messages_from_google_sheet(all_messages):
     return all_messages[::4]
+
+
+'''
+API INTERACTION FUNCTIONS
+'''
 
 '''
 Gets message data from the google sheet we're working on in 
@@ -173,16 +189,23 @@ Gets message data from facebook in
     dataFrame = {userName: [CLIENTMSG, OTHERMSG, CLIENTMSG, ..., 
                             CLIENTMSG/OTHERMSG]} format
 '''
-def get_messages_from_facebook():
-    return DataFrame()
+def get_messages_from_facebook(facebook_to_pandas, n):
+    return facebook_to_pandas.read_last_messages(n)
 
 '''
 Sends message data to facebook in
     dataFrame = {userName: [CLIENTMSG, CLIENTMSG, ..., CLIENTMSG]} format
 '''
-def send_messages_to_facebook(dataFrame_messages_to_send_to_facebook):
+def send_messages_to_facebook(pandas_to_facebook, 
+                              dataFrame_messages_to_send_to_facebook):
+    # messagesData = dict(zip(names, [['hello','test1'],['YUCK'],['BAAAAAH'],['']]))
+    # messages = DataFrame(dict([ (name,Series(messages)) for name,messages in messagesData.items() ])).fillna('')
     
-    
+    try:
+        pandas_to_facebook.post_given_messages(dataFrame_messages_to_send_to_facebook)
+    except AssertionError:
+        pandas_to_facebook.load_names(dataFrame_messages_to_send_to_facebook.columns)
+        pandas_to_facebook.post_given_messages(dataFrame_messages_to_send_to_facebook)
     succeeded = True
     return succeeded
 
@@ -190,11 +213,17 @@ def send_messages_to_facebook(dataFrame_messages_to_send_to_facebook):
 Processes message data from google sheet format to facebook message format
 and sends message data out to facebook
 '''
-def get_messages_from_google_sheet_and_send_to_facebook(original_sheet):
-    '''
+def get_messages_from_google_sheet_and_send_to_facebook(pandas_to_facebook, original_sheet):
+    '''get_messages_from_google_sheet_and_send_to_facebook
     google_sheets_data = {userName: [CLIENTMSG, "", OTHERMSG, "", CLIENTMSG, ...,
                                 "", CLIENTMSG/OTHERMSG]} format'''
     google_sheets_data = get_data_from_google_sheet()
+    
+    # DUMMY TO BE REMOVED LATER
+    dummy_return_sheet = {'Ali':['c1','','o1','','c2','','o2'],
+                   'Dipesh':['c1','','o1','','c2','','o2','','c3','','','','c4']}
+    google_sheets_data = make_dictionary_into_rectangle_array(dummy_return_sheet)
+    # END DUMMY SECTION
     
     '''
     Sends message data to facebook in
@@ -205,23 +234,23 @@ def get_messages_from_google_sheet_and_send_to_facebook(original_sheet):
     # if there is a new user. I will just delete the new user from the google sheets data
     # after I add them to the facebook_sending_data and proceed through the
     # rest of the data normally after that.
-    old_names = original_sheet.iloc[0]
-    for name in list(google_sheets_data.iloc[0]): #Check to see if there is a new user
+    old_names = list(original_sheet.columns)
+    for name in list(google_sheets_data.columns): #Check to see if there is a new user
         if name not in old_names: # Then there is a new user. Add all the new client messages to the user and delete the new user from the google sheets data
             facebook_sending_data[name] = get_client_messages_from_google_sheet(google_sheets_data[name])
             #for clientMsgIndex in range(0, len(google_sheets_data[name]), 4):
             #    facebook_sending_data[name].append()
-        google_sheets_data.drop(columns=[name])
+            google_sheets_data = google_sheets_data.drop(columns=[name])
     
     # If a user has been removed, the user's connection will be refreshed away
     # automatically.ju
-    for userName in google_sheets_data.iloc[0]:
+    for userName in google_sheets_data.columns:
         facebook_sending_data[userName] = [] # only gonna send back the new messages
-        new_msgs = get_new_client_messages_out(get_client_messages_from_google_sheet(original_sheet[userName]),
-                                               get_client_messages_from_google_sheet(google_sheets_data[userName])) # This gives back the new messages
+        new_msgs = get_new_client_messages_out(get_client_messages_from_google_sheet(list(original_sheet[userName])),
+                                               get_client_messages_from_google_sheet(list(google_sheets_data[userName]))) # This gives back the new messages
         facebook_sending_data[userName] = new_msgs
-    send_messages_to_facebook(DataFrame(facebook_sending_data))
-
+    print(make_dictionary_into_rectangle_array(facebook_sending_data))
+    send_messages_to_facebook(pandas_to_facebook, make_dictionary_into_rectangle_array(facebook_sending_data))
 '''
 Processes message data from facebook message format to google sheets format
 and sends message data out to google sheets
@@ -233,12 +262,70 @@ def get_messages_from_facebook_and_send_to_google_sheet():
 Cycles information between facebook and google sheets
 '''
 def cycle_messages_between_facebook_and_google_sheet():
-    get_messages_from_facebook_and_send_to_google_sheet()
     get_messages_from_google_sheet_and_send_to_facebook()
+    current_sheet_instance = get_messages_from_facebook_and_send_to_google_sheet()
+    return current_sheet_instance
     
 def main():
-    pass
+    fb_credentials = ('a','b')#(Useremail, password)
+    gs_credentials = ('a','b')
+    facebook_to_pandas_and_back = Facebook_to_Pandas_and_Back(fb_credentials)
+    pandas_to_google_sheet_and_back = Pandas_to_Google_Sheet_and_Back(gs_credentials)
     
+    current_original_sheet_instance = cycle_messages_between_facebook_and_google_sheet(facebook_to_pandas_and_back, pandas_to_google_sheet_and_back)
+    
+def testing_function():
+    names = ['Ali','Dipesh','Ana','Joseph']
+    credentials = ('ejnislam18@gmail.com','Jello123!')
+    facebook_to_pandas_and_back = Facebook_to_Pandas_and_Back(credentials)
+    facebook_to_pandas_and_back.load_names(names)
+    
+    messagesData = dict(zip(names, [['hello','test1'],['YUCK'],['BAAAAAH'],['']]))
+    messages = DataFrame(dict([ (name,Series(messages)) for name,messages in messagesData.items() ])).fillna('')
+    
+    facebook_to_pandas_and_back.post_given_messages(messages)
+    
+    last_messages = facebook_to_pandas_and_back.read_last_messages(10)
+    print(last_messages)
+    facebook_to_pandas_and_back.logout()
+    return last_messages, messages
+
+def testing_bigger_functions():
+    names = ['Ali','Dipesh','Ana','Joseph']
+    credentials = ('ejnislam18@gmail.com','Jello123!')
+    facebook_to_pandas_and_back = Facebook_to_Pandas_and_Back(credentials)
+    facebook_to_pandas_and_back.load_names(names)
+    
+    messagesData = dict(zip(names, [['hello','test1'],['YUCK'],['BAAAAAH'],['']]))
+    send_messages_to_facebook(facebook_to_pandas_and_back, 
+                              make_dictionary_into_rectangle_array(messagesData))
+    last_messages = get_messages_from_facebook(facebook_to_pandas_and_back, 1)
+    facebook_to_pandas_and_back.logout()
+    return last_messages
+    
+def testing_biggest_functions():
+    '''get_messages_from_google_sheet_and_send_to_facebook
+    google_sheets_data = {userName: [CLIENTMSG, "", OTHERMSG, "", CLIENTMSG, ...,
+                                "", CLIENTMSG/OTHERMSG]} format'''
+    
+    dummy_original_sheet = {'Ali':['c1','','o1','','c2','','o2'],
+                   'Dipesh':['c1','','o1','','c2','','o2'],
+                   'Ana':['c1','','o1','','c2','','o2']}
+    #dummy_return_sheet = {'Ali':['c1','','o1','','c2','','o2'],
+    #               'Dipesh':['c1','','o1','','c2','','o2','','c3','','','','c4'],
+    #               'Ana':['c1','','o1','','c2','','o2','','c3']
+    #               'Joseph':['c1','']}
+    dummy_original_sheet = make_dictionary_into_rectangle_array(dummy_original_sheet)
+    
+    names = ['Ali','Dipesh','Ana','Joseph']
+    credentials = ('ejnislam18@gmail.com','Jello123!')
+    facebook_to_pandas_and_back = Facebook_to_Pandas_and_Back(credentials)
+    facebook_to_pandas_and_back.load_names(names)
+    
+    get_messages_from_google_sheet_and_send_to_facebook(facebook_to_pandas_and_back, dummy_original_sheet)
+last_messages = testing_biggest_functions()
+
+
 '''
 class Facebook_AND_Pandas_MSG_HANDLER:
     def __init__(self, dataFrame, credentials):
