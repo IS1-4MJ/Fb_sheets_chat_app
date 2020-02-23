@@ -6,6 +6,7 @@ Created on Sat Feb 22 17:29:09 2020
 """
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from os.path import abspath
 from pandas import DataFrame, Series
 from df2gspread import df2gspread as d2g
 from google.oauth2 import service_account
@@ -13,6 +14,7 @@ import fbchat
 import fbchat.models as models
 from time import sleep
 from gspread_formatting import cellFormat, textFormat, format_cell_range, color
+from gspread_formatting import *
 credentials = ('ejnislam18@gmail.com','Jello123!')
 
 class Sheets_api_simplified:
@@ -40,7 +42,7 @@ class Sheets_api_simplified:
     def get_cell_color(self, cell_id):
         # Returns cell color
         cell_color_format = get_effective_format(self._sheet, cell_id)
-        return cell_color_format.backgroundColor()
+        return cell_color_format.backgroundColor
         # Returns cell color
         pass
     def get_cell_text(self, cell_id):
@@ -58,7 +60,7 @@ class Sheets_api_augmented:
     ALPHA = 'ABCDEFGHIJLMNOPQRSTUVWXYZ'
     MAX_CONVO_DISPLAY_LENGTH = 40
     def __init__(self, credentials):
-        self._client = Sheets_api_simplified()
+        self._client = Sheets_api_simplified(credentials)
         
     '''
     Creates new thread for name on Google Sheet with texts conversation
@@ -102,7 +104,7 @@ class Sheets_api_augmented:
         color = self._client.get_cell_color(pos)
         messages = []
         for num in range(Sheets_api_augmented.MAX_CONVO_DISPLAY_LENGTH):
-            new_pos = col + str(ind + (num + 1))
+            new_pos = col + str(row + (num + 1))
             messages.append(self._client.get_cell_text(new_pos))
         
         CTRL = 0 # if defaukt
@@ -167,7 +169,7 @@ class Sheets_to_Pandas_and_Back:
         self._users = dict()
         for ind, name in enumerate(names):
             self._users[name] = Sheets_to_Pandas_and_Back.ALPHA[ind+1] + str(row) 
-        return load_names
+        # Doesn't need to return anything
         
     def send_data_to_sheets(self, messages): # This is where new users are added and old users are removed. 
         old_names = [user[0] for user in self._users]
@@ -180,13 +182,13 @@ class Sheets_to_Pandas_and_Back:
     # Get all the messages currently registered 
     def retrieve_data_from_sheets(self):
         messages = {}
-        for user in self._users:
-            thread = self._client.get_thread(user[1])
+        for user, addr in self._users.items():
+            thread = self._client.get_thread(addr)
             if thread[0] == 0:
                 messages[thread[0]] = thread[1]
             elif thread[0] == 1:# If there's a new user, reflect that there is a new user! 
                 messages[thread[0]] = thread[1]
-                name = self._client.get_name(user.pos) # Make the new user occupy the old new user spot.
+                name = self._client.get_name(addr) # Make the new user occupy the old new user spot.
                 self._users[name] = self._users['new'] # Make the new user placeholder occupy a now shifted over by one spot.
                 self._users['new'] = Sheets_to_Pandas_and_Back.ALPHA[len(self._users)+1] + str(self._starting_row)
             else:
@@ -317,7 +319,7 @@ Gets message data from the google sheet we're working on in
                                 "", CLIENTMSG/OTHERMSG]} format
 '''
 def get_data_from_google_sheet(Google_sheet_to_Pandas):
-    return Google_sheet_to_Pandas.retrieve_data_from_Sheets()
+    return Google_sheet_to_Pandas.retrieve_data_from_sheets()
 
 '''
 Sends message data to the google sheet we're working on in 
@@ -364,7 +366,7 @@ def get_messages_from_google_sheet_and_send_to_facebook(pandas_to_facebook, Goog
     '''get_messages_from_google_sheet_and_send_to_facebook
     google_sheets_data = {userName: [CLIENTMSG, "", OTHERMSG, "", CLIENTMSG, ...,
                                 "", CLIENTMSG/OTHERMSG]} format'''
-    google_sheets_data = get_data_from_google_sheet()
+    google_sheets_data = get_data_from_google_sheet(Google_sheet_to_Pandas)
     
     # DUMMY TO BE REMOVED LATER
     dummy_return_sheet = {'Ali':['c1','','o1','','c2','','o2'],
@@ -500,12 +502,17 @@ def testing_biggest_functions():
     #               'Ana':['c1','','o1','','c2','','o2','','c3']
     #               'Joseph':['c1','']}
     dummy_original_sheet = make_dictionary_into_rectangle_array(dummy_original_sheet)
-    
+
     names = ['Ali','Dipesh','Ana','Joseph']
     credentials = ('ejnislam18@gmail.com','Jello123!')
+    cred_file = abspath('./sheets_api.json')
     facebook_to_pandas_and_back = Facebook_to_Pandas_and_Back(credentials)
     facebook_to_pandas_and_back.load_names(names)
+    sheets_to_pandas_and_back = Sheets_to_Pandas_and_Back(cred_file)
     
-    get_messages_from_google_sheet_and_send_to_facebook(facebook_to_pandas_and_back, dummy_original_sheet, )
-#last_messages = testing_biggest_functions()
+    
+    get_messages_from_google_sheet_and_send_to_facebook(
+            facebook_to_pandas_and_back, sheets_to_pandas_and_back, dummy_original_sheet
+            )
+last_messages = testing_biggest_functions()
     
